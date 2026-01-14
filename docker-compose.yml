@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: coin-wave-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - GIN_MODE=release
+      - DB_DSN=root:rootpassword@tcp(mysql:3306)/coinwave?charset=utf8mb4&parseTime=True&loc=Local
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - coin-wave-network
+
+  frontend:
+    build: ./frontend
+    container_name: coin-wave-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - coin-wave-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: coin-wave-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: coinwave
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - coin-wave-network
+
+  redis:
+    image: redis:alpine
+    container_name: coin-wave-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - coin-wave-network
+
+networks:
+  coin-wave-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
