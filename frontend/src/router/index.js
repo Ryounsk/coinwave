@@ -4,6 +4,7 @@ import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import ArticleCreate from '../views/ArticleCreate.vue';
 import ArticleDetail from '../views/ArticleDetail.vue';
+import RagChat from '../views/RagChat.vue';
 import Profile from '../views/Profile.vue';
 import Rankings from '../views/Rankings.vue';
 import { useAuthStore } from '../stores/auth';
@@ -14,6 +15,7 @@ const routes = [
   { path: '/register', component: Register, name: 'Register' },
   { path: '/create', component: ArticleCreate, name: 'ArticleCreate', meta: { requiresAuth: true } },
   { path: '/article/:id', component: ArticleDetail, name: 'ArticleDetail' },
+  { path: '/chat', component: RagChat, name: 'RagChat', meta: { requiresAuth: true } },
   { path: '/profile', component: Profile, name: 'Profile', meta: { requiresAuth: true } },
   { path: '/rankings', component: Rankings, name: 'Rankings' },
 ];

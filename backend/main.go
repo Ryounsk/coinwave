@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
+	"log"
+	"time"
+
 	"coin-wave/controllers"
 	"coin-wave/database"
-	"coin-wave/middleware"
-	"time"
+	"coin-wave/rag"
+	"coin-wave/routes"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -13,11 +17,39 @@ import (
 func main() {
 	database.InitDB()
 
+	// Initialize RAG Components
+	ctx := context.Background()
+	milvusStore, err := rag.NewMilvusStore(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to connect to Milvus: %v", err)
+	} else {
+		// Initialize Collection
+		if err := milvusStore.InitCollection(ctx); err != nil {
+			log.Printf("Warning: Failed to init Milvus collection: %v", err)
+		}
+	}
+
+	volcClient := rag.NewVolcClient()
+
+	var ragService *rag.RagService
+	var ingestionWorker *rag.IngestionWorker
+
+	if milvusStore != nil {
+		ragService = rag.NewRagService(database.DB, volcClient, milvusStore)
+		ingestionWorker, err = rag.NewIngestionWorker(ragService)
+		if err != nil {
+			log.Printf("Warning: Failed to create ingestion worker: %v", err)
+		}
+
+		controllers.InitRag(ingestionWorker, ragService)
+		log.Println("RAG System Initialized Successfully")
+	}
+
 	r := gin.Default()
 
 	// CORS Setup
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000", "http://localhost"}, // Added localhost:3000/80 for docker
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000", "http://localhost"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -25,41 +57,11 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Routes
-	api := r.Group("/api")
-	{
-		auth := api.Group("/auth")
-		{
-			auth.POST("/register", controllers.Register)
-			auth.POST("/login", controllers.Login)
-		}
+	// Setup Routes
+	routes.SetupRoutes(r)
 
-		// Public Routes
-		public := api.Group("/")
-		public.Use(middleware.OptionalAuthMiddleware())
-		{
-			public.GET("/articles", controllers.GetArticles)
-			public.GET("/articles/:id", controllers.GetArticle)
-			public.GET("/rankings", controllers.GetRankings)
-			public.GET("/rates", controllers.GetExchangeRate)
-		}
-
-		// Protected Routes
-		protected := api.Group("/")
-		protected.Use(middleware.AuthMiddleware())
-		{
-			protected.POST("/articles", controllers.CreateArticle)
-			protected.DELETE("/articles/:id", controllers.DeleteArticle)
-			protected.POST("/articles/:id/bookmark", controllers.BookmarkArticle)
-			protected.POST("/articles/:id/purchase", controllers.PurchaseArticle)
-			
-			protected.POST("/wallet/deposit", controllers.Deposit)
-			protected.GET("/wallet/balance", controllers.GetBalance)
-
-			protected.GET("/user/articles", controllers.GetUserArticles)
-			protected.GET("/user/bookmarks", controllers.GetUserBookmarks)
-		}
-	}
+	// Backward Compatibility Redirects (Optional, or just force frontend update)
+	// For now, let's just use v1.
 
 	r.Run(":8080")
 }

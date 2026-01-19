@@ -14,15 +14,25 @@ type User struct {
 
 type Article struct {
 	gorm.Model
-	Title         string  `json:"title"`
-	Content       string  `gorm:"type:text" json:"content"`
-	AuthorID      uint    `json:"author_id"`
-	Author        User    `json:"author"`
-	Tags          string  `json:"tags"` // Comma separated tags for simplicity
-	IsPaid        bool    `gorm:"default:false" json:"is_paid"`
-	Price         float64 `gorm:"default:0" json:"price"`
-	ViewCount     int     `gorm:"default:0" json:"view_count"`
-	BookmarkCount int     `gorm:"default:0" json:"bookmark_count"`
+	Title          string  `json:"title"`
+	Content        string  `gorm:"type:text" json:"content"`
+	AuthorID       uint    `json:"author_id"`
+	Author         User    `json:"author"`
+	Tags           string  `json:"tags"` // Comma separated tags for simplicity
+	IsPaid         bool    `gorm:"default:false" json:"is_paid"`
+	Price          float64 `gorm:"default:0" json:"price"`
+	ViewCount      int     `gorm:"default:0" json:"view_count"`
+	BookmarkCount  int     `gorm:"default:0" json:"bookmark_count"`
+	VectorStatus   string  `gorm:"default:'pending'" json:"vector_status"` // pending, processing, completed, failed
+	VectorProgress int     `gorm:"default:0" json:"vector_progress"`       // 0-100
+}
+
+type Chunk struct {
+	gorm.Model
+	ArticleID uint   `gorm:"index" json:"article_id"`
+	Content   string `gorm:"type:text" json:"content"`
+	ChunkIndex int    `json:"chunk_index"`
+	VectorID   int64  `json:"vector_id"` // Milvus ID
 }
 
 type Bookmark struct {

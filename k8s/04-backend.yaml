@@ -32,6 +32,26 @@ spec:
             configMapKeyRef:
               name: coinwave-config
               key: REDIS_ADDR
+        - name: MILVUS_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: coinwave-config
+              key: MILVUS_ADDRESS
+        - name: VOLC_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: coinwave-secrets
+              key: volc-auth-token
+        - name: VOLC_MODEL_EMBEDDING
+          valueFrom:
+            configMapKeyRef:
+              name: coinwave-config
+              key: VOLC_MODEL_EMBEDDING
+        - name: VOLC_MODEL_LLM
+          valueFrom:
+            configMapKeyRef:
+              name: coinwave-config
+              key: VOLC_MODEL_LLM
         ports:
         - containerPort: 8080
         readinessProbe:
@@ -54,6 +74,7 @@ metadata:
 spec:
   selector:
     app: backend
+  type: LoadBalancer
   ports:
     - protocol: TCP
       port: 8080

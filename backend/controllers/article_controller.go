@@ -50,6 +50,11 @@ func CreateArticle(c *gin.Context) {
 		return
 	}
 
+	// Trigger Async Vectorization
+	if RagWorker != nil {
+		RagWorker.Run(c.Request.Context(), article.ID)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": article})
 }
 

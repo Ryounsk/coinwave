@@ -12,6 +12,16 @@
               <span class="publish-date">{{ new Date(article.CreatedAt).toLocaleDateString() }}</span>
             </div>
             <div class="action-buttons">
+              <el-tooltip content="Re-index for RAG" v-if="isAuthor">
+                <el-button 
+                    type="warning" 
+                    :icon="Refresh" 
+                    class="icon-btn"
+                    circle 
+                    plain
+                    @click="handleReindex" 
+                />
+              </el-tooltip>
               <el-button 
                 :type="bookmarked ? 'primary' : 'default'" 
                 :icon="Star" 
@@ -123,7 +133,8 @@ import { useWalletStore } from '../stores/wallet';
 import { useAuthStore } from '../stores/auth';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Star, Delete, Warning, Lock } from '@element-plus/icons-vue';
+import { Star, Delete, Warning, Lock, Refresh } from '@element-plus/icons-vue';
+import axios from '../api/axios';
 
 const route = useRoute();
 const router = useRouter();
@@ -153,6 +164,19 @@ onMounted(async () => {
     ElMessage.error('Failed to load article');
   }
 });
+
+const handleReindex = async () => {
+  try {
+    await axios.post(`/articles/${article.value.ID}/reindex`);
+    ElMessage.success('Re-indexing started');
+    // Refresh article data after delay
+    setTimeout(async () => {
+        article.value = await articleStore.fetchArticle(article.value.ID);
+    }, 1000);
+  } catch (error) {
+    ElMessage.error('Failed to start re-indexing');
+  }
+};
 
 const handleBookmark = async () => {
   try {

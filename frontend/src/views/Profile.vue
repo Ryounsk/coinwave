@@ -19,17 +19,39 @@
                     v-for="article in userArticles" 
                     :key="article.ID" 
                     class="list-item"
-                    @click="$router.push(`/article/${article.ID}`)"
                   >
-                    <div class="item-content">
+                    <div class="item-content" @click="$router.push(`/article/${article.ID}`)">
                       <h4 class="item-title">{{ article.title }}</h4>
                       <div class="item-meta">
                         <span>{{ new Date(article.CreatedAt).toLocaleDateString() }}</span>
                         <span class="dot">·</span>
                         <span>{{ article.view_count }} views</span>
+                        <span class="dot">·</span>
+                        
+                        <div class="vector-status" v-if="article.vector_status === 'processing'">
+                           <el-progress 
+                              :percentage="article.vector_progress || 0" 
+                              :status="article.vector_status === 'failed' ? 'exception' : ''"
+                              :stroke-width="6"
+                              style="width: 100px"
+                            />
+                        </div>
+                        <el-tag v-else size="small" :type="article.vector_status === 'completed' ? 'success' : article.vector_status === 'failed' ? 'danger' : 'warning'">
+                          {{ article.vector_status || 'pending' }}
+                        </el-tag>
                       </div>
                     </div>
-                    <el-icon><ArrowRight /></el-icon>
+                    <div class="item-actions">
+                      <el-button 
+                        size="small" 
+                        @click.stop="handleReIndex(article)"
+                        :loading="reindexing === article.ID"
+                        :disabled="article.vector_status === 'processing'"
+                      >
+                        AI Re-Index
+                      </el-button>
+                      <el-icon @click="$router.push(`/article/${article.ID}`)"><ArrowRight /></el-icon>
+                    </div>
                   </div>
                 </div>
                 <el-empty v-else description="No articles published yet" />
@@ -55,6 +77,10 @@
                   </div>
                 </div>
                 <el-empty v-else description="No bookmarks yet" />
+              </el-tab-pane>
+
+              <el-tab-pane label="AI Assistant" name="ai-assistant">
+                <AiAssistant />
               </el-tab-pane>
             </el-tabs>
           </div>
@@ -114,12 +140,14 @@
 
 <script setup>
 import Navbar from '../components/Navbar.vue';
-import { ref, onMounted } from 'vue';
+import AiAssistant from '../components/AiAssistant.vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useWalletStore } from '../stores/wallet';
 import { useArticleStore } from '../stores/article';
 import { ElMessage } from 'element-plus';
 import { ArrowRight } from '@element-plus/icons-vue';
+import axios from '../api/axios';
 
 const authStore = useAuthStore();
 const walletStore = useWalletStore();
@@ -130,16 +158,34 @@ const notifications = ref(true);
 const activeTab = ref('articles');
 const userArticles = ref([]);
 const userBookmarks = ref([]);
+const reindexing = ref(null);
+const pollIntervals = {};
 
 onMounted(async () => {
   walletStore.fetchBalance();
+  fetchData();
+});
+
+onUnmounted(() => {
+  // Clear all poll intervals
+  Object.values(pollIntervals).forEach(clearInterval);
+});
+
+const fetchData = async () => {
   try {
     userArticles.value = await articleStore.fetchUserArticles();
     userBookmarks.value = await articleStore.fetchUserBookmarks();
+    
+    // Check if any articles are processing and start polling
+    userArticles.value.forEach(article => {
+      if (article.vector_status === 'processing') {
+        startPolling(article.ID);
+      }
+    });
   } catch (error) {
     ElMessage.error('Failed to fetch user data');
   }
-});
+};
 
 const handleDeposit = async () => {
   try {
@@ -150,6 +196,59 @@ const handleDeposit = async () => {
     ElMessage.error('Deposit failed');
   }
 };
+
+const handleReIndex = async (article) => {
+  reindexing.value = article.ID;
+  try {
+    await axios.post(`/articles/${article.ID}/reindex`);
+    ElMessage.success('Re-indexing triggered');
+    
+    // Update local state immediately
+    article.vector_status = 'processing';
+    article.vector_progress = 0;
+    
+    startPolling(article.ID);
+    
+  } catch (error) {
+    ElMessage.error('Failed to trigger re-indexing');
+  } finally {
+    reindexing.value = null;
+  }
+};
+
+const startPolling = (articleId) => {
+  if (pollIntervals[articleId]) return;
+  
+  pollIntervals[articleId] = setInterval(async () => {
+    try {
+      // We need a way to fetch single article status without loading everything
+      // Currently using fetchUserArticles which might be heavy but works
+      const articles = await articleStore.fetchUserArticles();
+      const updatedArticle = articles.find(a => a.ID === articleId);
+      
+      if (updatedArticle) {
+        // Update local article state
+        const localArticle = userArticles.value.find(a => a.ID === articleId);
+        if (localArticle) {
+          localArticle.vector_status = updatedArticle.vector_status;
+          localArticle.vector_progress = updatedArticle.vector_progress;
+          
+          if (updatedArticle.vector_status === 'completed' || updatedArticle.vector_status === 'failed') {
+            clearInterval(pollIntervals[articleId]);
+            delete pollIntervals[articleId];
+            if (updatedArticle.vector_status === 'failed') {
+                 // Reset progress to 0 on failure as requested
+                 localArticle.vector_progress = 0;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Polling error", e);
+    }
+  }, 1000);
+};
+
 </script>
 
 <style scoped>
@@ -325,7 +424,18 @@ const handleDeposit = async () => {
   align-items: center;
 }
 
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .dot {
   margin: 0 4px;
+}
+
+.vector-status {
+    display: flex;
+    align-items: center;
 }
 </style>

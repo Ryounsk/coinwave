@@ -1,17 +1,22 @@
 # Build stage
-FROM mirror.gcr.io/library/node:20-alpine AS builder
+FROM node:20-alpine AS builder
 
 
 WORKDIR /app
 
 COPY package*.json ./
+RUN npm config set registry https://registry.npmmirror.com
 RUN npm install
 
 COPY . .
+# Force rebuild
+ENV REBUILD_DATE="2026-01-19-02"
 RUN npm run build
 
 # Production stage
-FROM mirror.gcr.io/library/nginx:alpine
+FROM nginx:alpine AS final
+
+WORKDIR /app
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
