@@ -10,7 +10,6 @@
         <router-link to="/rankings" class="nav-item" :class="{ active: $route.path === '/rankings' }">Rankings</router-link>
         
         <template v-if="authStore.isAuthenticated">
-          <router-link to="/chat" class="nav-item" :class="{ active: $route.path === '/chat' }">AI Assistant</router-link>
           <router-link to="/create" class="nav-item" :class="{ active: $route.path === '/create' }">Post</router-link>
           <div class="user-menu">
              <el-dropdown trigger="click">

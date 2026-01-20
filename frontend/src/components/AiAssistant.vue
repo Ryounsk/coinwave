@@ -1,5 +1,5 @@
 <template>
-  <div class="ai-assistant">
+  <div class="ai-assistant" :style="{ height: height }">
     <div class="chat-window">
       <div class="messages" ref="messagesRef">
         <div v-for="(msg, index) in messages" :key="index" class="message" :class="msg.role">
@@ -17,6 +17,14 @@
                   <div v-for="(source, idx) in msg.sources" :key="idx" class="source-item">
                     {{ truncate(source, 100) }}
                   </div>
+                </div>
+                <div v-if="msg.timings" class="timings">
+                  <div class="timings-title">Performance:</div>
+                  <div class="timing-item">End-to-End: {{ (msg.timings.client_total * 1000).toFixed(0) }}ms</div>
+                  <div v-if="msg.timings.total_handler" class="timing-item">Backend Total: {{ (msg.timings.total_handler * 1000).toFixed(0) }}ms</div>
+                  <div v-if="msg.timings.llm" class="timing-item">LLM: {{ (msg.timings.llm * 1000).toFixed(0) }}ms</div>
+                  <div v-if="msg.timings.search" class="timing-item">Search: {{ (msg.timings.search * 1000).toFixed(0) }}ms</div>
+                  <div v-if="msg.timings.embedding" class="timing-item">Embedding: {{ (msg.timings.embedding * 1000).toFixed(0) }}ms</div>
                 </div>
               </div>
             </div>
@@ -53,6 +61,13 @@ const messages = ref([
 ]);
 const messagesRef = ref(null);
 
+defineProps({
+  height: {
+    type: String,
+    default: '600px'
+  }
+});
+
 const sendMessage = async () => {
   if (!inputQuery.value.trim()) return;
 
@@ -64,13 +79,22 @@ const sendMessage = async () => {
   messages.value.push({ role: 'assistant', content: '', loading: true });
   scrollToBottom();
 
+  const startTime = performance.now();
+
   try {
     const response = await axios.post('/rag/query', { question });
     
+    const endTime = performance.now();
+    const clientTotal = (endTime - startTime) / 1000; // Convert to seconds
+
     const lastMsg = messages.value[messages.value.length - 1];
     lastMsg.loading = false;
     lastMsg.content = response.data.answer || "I couldn't find a specific answer in your knowledge base.";
     lastMsg.sources = response.data.sources;
+    lastMsg.timings = {
+      ...response.data.timings,
+      client_total: clientTotal
+    };
     
   } catch (error) {
     console.error(error);
@@ -104,7 +128,6 @@ const truncate = (text, length) => {
 
 <style scoped>
 .ai-assistant {
-  height: 600px;
   display: flex;
   flex-direction: column;
 }
@@ -199,6 +222,23 @@ const truncate = (text, length) => {
   margin-bottom: 4px;
   padding-left: 8px;
   border-left: 2px solid #ddd;
+}
+
+.timings {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  font-size: 11px;
+  color: #888;
+}
+
+.timings-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.timing-item {
+  margin-bottom: 2px;
 }
 
 .input-area {

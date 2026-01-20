@@ -4,6 +4,7 @@ import (
 	"coin-wave/database"
 	"coin-wave/models"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,15 +32,23 @@ func RagQuery(c *gin.Context) {
 		return
 	}
 
-	answer, sources, err := RagService.Query(c.Request.Context(), uid, input.Question)
+	start := time.Now()
+	answer, sources, timings, err := RagService.Query(c.Request.Context(), uid, input.Question)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "RAG Query failed: " + err.Error()})
 		return
 	}
 
+	// Add total handler time
+	if timings == nil {
+		timings = make(map[string]float64)
+	}
+	timings["total_handler"] = time.Since(start).Seconds()
+
 	c.JSON(http.StatusOK, gin.H{
 		"answer":  answer,
 		"sources": sources,
+		"timings": timings,
 	})
 }
 

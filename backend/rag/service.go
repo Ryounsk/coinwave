@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"coin-wave/models"
 
@@ -139,21 +140,29 @@ func (s *RagService) chunkText(text string, chunkSize, overlap int) []string {
 	return chunks
 }
 
-func (s *RagService) Query(ctx context.Context, userID uint, question string) (string, []string, error) {
+func (s *RagService) Query(ctx context.Context, userID uint, question string) (string, []string, map[string]float64, error) {
+	timings := make(map[string]float64)
+	start := time.Now()
+
 	// 1. Embed question
+	embedStart := time.Now()
 	embeddings, err := s.volcClient.GetEmbeddings([]string{question})
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
+	timings["embedding"] = time.Since(embedStart).Seconds()
+
 	if len(embeddings) == 0 {
-		return "", nil, fmt.Errorf("failed to embed question")
+		return "", nil, nil, fmt.Errorf("failed to embed question")
 	}
 
 	// 2. Search Milvus
+	searchStart := time.Now()
 	results, err := s.milvusStore.Search(ctx, userID, embeddings[0], 5) // Top 5
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
+	timings["search"] = time.Since(searchStart).Seconds()
 
 	// 3. Construct Prompt
 	var retrievedChunks []string
@@ -172,14 +181,18 @@ func (s *RagService) Query(ctx context.Context, userID uint, question string) (s
 请严格根据文章内容回答，不允许凭空生成。`, contextText, question)
 
 	// 4. Call LLM
+	llmStart := time.Now()
 	messages := []Message{
 		{Role: "user", Content: systemPrompt},
 	}
 	
 	answer, err := s.volcClient.Chat(messages)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
+	timings["llm"] = time.Since(llmStart).Seconds()
 
-	return answer, retrievedChunks, nil
+	timings["total_internal"] = time.Since(start).Seconds()
+
+	return answer, retrievedChunks, timings, nil
 }

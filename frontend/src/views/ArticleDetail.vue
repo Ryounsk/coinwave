@@ -23,6 +23,15 @@
                 />
               </el-tooltip>
               <el-button 
+                v-if="hasAccess"
+                type="primary" 
+                :icon="ChatDotRound" 
+                class="icon-btn"
+                circle 
+                plain
+                @click="aiDrawerVisible = true" 
+              />
+              <el-button 
                 :type="bookmarked ? 'primary' : 'default'" 
                 :icon="Star" 
                 class="icon-btn"
@@ -122,18 +131,30 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- AI Assistant Drawer -->
+    <el-drawer
+      v-model="aiDrawerVisible"
+      title="AI Assistant"
+      direction="rtl"
+      size="400px"
+      :with-header="true"
+    >
+      <AiAssistant height="100%" />
+    </el-drawer>
   </div>
 </template>
 
 <script setup>
 import Navbar from '../components/Navbar.vue';
+import AiAssistant from '../components/AiAssistant.vue';
 import { ref, onMounted, computed } from 'vue';
 import { useArticleStore } from '../stores/article';
 import { useWalletStore } from '../stores/wallet';
 import { useAuthStore } from '../stores/auth';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Star, Delete, Warning, Lock, Refresh } from '@element-plus/icons-vue';
+import { Star, Delete, Warning, Lock, Refresh, ChatDotRound } from '@element-plus/icons-vue';
 import axios from '../api/axios';
 
 const route = useRoute();
@@ -146,6 +167,7 @@ const article = ref(null);
 const bookmarked = ref(false);
 const purchaseDialogVisible = ref(false);
 const purchasing = ref(false);
+const aiDrawerVisible = ref(false);
 
 const hasAccess = computed(() => {
   return article.value?.has_access;
