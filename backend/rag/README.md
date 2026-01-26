@@ -1,3 +1,8 @@
+# eg：
+
+<img width="1554" height="756" alt="截屏2026-01-26 11 28 22" src="https://github.com/user-attachments/assets/f8af17d6-4dfe-4604-bf7b-5c9a9ae1cded" />
+
+
 # RAG System for CoinWave
 
 This module implements a Retrieval-Augmented Generation (RAG) system using:
